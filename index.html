@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <title>Apex Goal Tracker</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <style>
+      :root {
+        --bg: #000;
+        --panel: rgba(5, 14, 16, 0.76);
+        --accent: #6C5CE7;
+        --accent-rgb: 108, 92, 231;
+        --line: rgba(var(--accent-rgb), 0.34);
+        --text: #f3fff9;
+        --muted: #8db0a8;
+        --green: #22ff99;
+        --blue: #2f8dff;
+        --amber: #ff9a2f;
+        --purple: #bc8cff;
+        --white: #f8fbff;
+        --red: #ff4d68;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #000;
+        color: var(--text);
+        font-family: Inter, Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 50% 12%, rgba(var(--accent-rgb), 0.16), transparent 30rem),
+          radial-gradient(circle at 85% 18%, rgba(47, 141, 255, 0.13), transparent 24rem),
+          radial-gradient(circle at 12% 70%, rgba(255, 154, 47, 0.09), transparent 24rem);
+      }
+
+      button, input, textarea { font: inherit; }
+      button {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.045);
+        color: var(--text);
+        padding: 10px 12px;
+        font-weight: 850;
+      }
+      input, textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.42);
+        color: var(--text);
+        padding: 12px;
+        outline: none;
+      }
+      textarea { resize: vertical; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: clamp(28px, 6vw, 44px); font-weight: 950; }
+      h2 { font-size: 18px; font-weight: 900; }
+      h3 { font-size: 15px; font-weight: 900; }
+      small, .muted { color: var(--muted); font-size: 12px; font-weight: 750; }
+
+      .app {
+        position: relative;
+        width: min(100%, 1180px);
+        margin: 0 auto;
+        padding: 14px 12px 32px;
+      }
+      .glass {
+        background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.018)), var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 18px 52px rgba(0,0,0,.42), 0 0 0 1px rgba(var(--accent-rgb),.07), 0 0 24px rgba(var(--accent-rgb),.12), inset 0 1px 0 rgba(255,255,255,.08);
+        backdrop-filter: blur(16px);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+      .grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .mission, .calendar, .dashboard, .card { padding: 14px; }
+      .mission { display: grid; gap: 9px; }
+      .mission-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+      .mission-text {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        text-align: left;
+        font-size: clamp(24px, 5vw, 38px);
+        line-height: 1.08;
+        font-weight: 950;
+        color: var(--text);
+        text-shadow: 0 0 24px rgba(34,255,153,.28);
+      }
+      .hidden { display: none !important; }
+
+      .atom-card {
+        min-height: 430px;
+        display: grid;
+        place-items: center;
+        position: relative;
+        overflow: hidden;
+        perspective: 900px;
+        padding: 12px;
+      }
+      #solarCanvas {
+        width: min(100%, 620px);
+        max-width: 620px;
+        aspect-ratio: 1 / 1;
+        height: auto;
+        display: block;
+        position: relative;
+        z-index: 1;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .metric {
+        display: grid;
+        place-items: center;
+        gap: 8px;
+        min-height: 170px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(0,0,0,.28);
+      }
+      .dashboard {
+        position: relative;
+        z-index: 2;
+        margin-top: 12px;
+      }
+      .ring {
+        width: 124px;
+        height: 124px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        position: relative;
+        background: radial-gradient(circle, #000 55%, transparent 56%), conic-gradient(var(--c) var(--v), rgba(255,255,255,.11) 0);
+        box-shadow: 0 0 18px color-mix(in srgb, var(--c) 34%, transparent), inset 0 0 18px rgba(255,255,255,.05);
+        font-size: 25px;
+        font-weight: 950;
+        overflow: hidden;
+        isolation: isolate;
+        transition: background 700ms cubic-bezier(.16, 1, .3, 1), box-shadow 700ms cubic-bezier(.16, 1, .3, 1);
+        animation: ringBreath 3.8s ease-in-out infinite;
+      }
+      .ring::before {
+        content: "";
+        position: absolute;
+        inset: -22%;
+        border-radius: inherit;
+        background: conic-gradient(from 0deg, transparent 0 58%, color-mix(in srgb, var(--c) 52%, transparent) 66%, transparent 74% 100%);
+        filter: blur(8px);
+        opacity: .42;
+        animation: ringSweep 5.5s linear infinite;
+        z-index: -1;
+      }
+      .ring::after {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border-radius: inherit;
+        border: 1px solid color-mix(in srgb, var(--c) 48%, transparent);
+        box-shadow: 0 0 22px color-mix(in srgb, var(--c) 28%, transparent);
+        pointer-events: none;
+      }
+      .ring span {
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 0 16px color-mix(in srgb, var(--c) 62%, transparent);
+      }
+      @keyframes ringSweep {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes ringBreath {
+        0%, 100% { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 26%, transparent)); }
+        50% { filter: drop-shadow(0 0 14px color-mix(in srgb, var(--c) 54%, transparent)); }
+      }
+      .bars { display: grid; gap: 11px; margin-top: 14px; }
+      .bar-top { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 850; }
+      .track { height: 15px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.055); }
+      .fill { width: var(--v); height: 100%; background: var(--c); box-shadow: 0 0 12px var(--c); transition: width 700ms cubic-bezier(.16, 1, .3, 1); }
+
+      .calendar-head, .section-head, .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .weekdays, .days { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; }
+      .weekdays { margin: 12px 0 8px; color: var(--muted); font-size: 10px; text-align: center; font-weight: 900; }
+      .day { min-height: 42px; display: grid; place-items: center; padding: 0; }
+      .day.active { background: rgba(var(--accent-rgb),.18); border-color: rgba(var(--accent-rgb),.72); }
+      .day.muted { opacity: .34; }
+      .task { margin-top: 10px; padding: 12px; border-left: 5px solid var(--blue); }
+      .task-top { display: grid; grid-template-columns: 1fr 84px; gap: 10px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+      .on { color: var(--accent); border-color: rgba(var(--accent-rgb),.62); background: rgba(var(--accent-rgb),.13); }
+      .danger { color: var(--red); }
+      .core { display: grid; gap: 12px; }
+      .check { display: flex; align-items: center; gap: 9px; margin: 12px 0; }
+      .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+      .summary { margin-top: 10px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: rgba(0,0,0,.3); }
+
+      @media (min-width: 760px) {
+        .metric-grid { grid-template-columns: repeat(5, minmax(0,1fr)); }
+        .core { grid-template-columns: 1fr 1fr; }
+      }
+      @media (min-width: 1020px) {
+        .grid.hero { grid-template-columns: .8fr 1.25fr .95fr; align-items: stretch; }
+        .grid.work { grid-template-columns: 1.1fr .9fr; align-items: start; }
+        .core { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="glass">
+        <div>
+          <h1>Apex Goal Tracker</h1>
+          <small id="dateLabel">Today</small>
+        </div>
+      </header>
+
+      <section class="grid hero">
+        <article class="mission glass">
+          <small>Primary mission</small>
+          <form id="missionForm" class="mission-row">
+            <input id="goalInput" maxlength="80" placeholder="Type your goal, e.g. Become a graphic designer" />
+            <button type="submit">OK</button>
+          </form>
+          <button id="missionText" class="mission-text hidden" type="button"></button>
+          <small id="goalStatus">Set a goal to personalize the system.</small>
+        </article>
+
+        <section class="atom-card glass">
+          <canvas id="solarCanvas" width="720" height="720" aria-label="3D solar system progress tracker"></canvas>
+        </section>
+
+        <article class="calendar glass">
+          <div class="calendar-head">
+            <button id="prevMonth" type="button">&lt;</button>
+            <strong id="monthLabel">Month</strong>
+            <button id="nextMonth" type="button">&gt;</button>
+          </div>
+          <div class="weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+          <div id="days" class="days"></div>
+        </article>
+      </section>
+
+      <section class="dashboard glass">
+        <div class="card-head"><h2>Performance Dashboard</h2><small>All metrics</small></div>
+        <div id="metrics" class="metric-grid"></div>
+        <div id="bars" class="bars"></div>
+      </section>
+
+      <section class="grid work">
+        <section>
+          <div class="section-head"><h2>Tasks</h2><button id="addTask" type="button">Add Task</button></div>
+          <div id="tasks"></div>
+        </section>
+        <section class="core">
+          <article class="card glass">
+            <div class="card-head"><h2>Backlog</h2><small id="backlogState">No backlog</small></div>
+            <label class="check"><input id="hasBacklog" type="checkbox" />I have backlog today</label>
+            <label class="check"><input id="backlogCleared" type="checkbox" />Backlog cleared today</label>
+            <textarea id="backlogNote" rows="3" placeholder="Backlog recovery notes..."></textarea>
+          </article>
+          <article class="card glass">
+            <div class="card-head"><h2>Revision</h2><small id="revisionState">Pending</small></div>
+            <label class="check"><input id="revisionDone" type="checkbox" />Revision / reflection completed</label>
+            <textarea id="revisionNote" rows="3" placeholder="What did you revise today?"></textarea>
+          </article>
+          <article class="card glass">
+            <h2>Daily Review</h2>
+            <textarea id="review" rows="4" placeholder="Write today's mistakes, learning, or questions..."></textarea>
+            <p id="summary" class="summary"></p>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const keyPrefix = "apex_stable_day_";
+      const goalKey = "apex_stable_goal";
+      const confirmedKey = "apex_stable_confirmed";
+      const colors = { productivity:"#22ff99", consistency:"#2f8dff", punctuality:"#ff9a2f", revision:"#bc8cff", progress:"#f8fbff" };
+      const planetSpecs = [
+        ["Productivity", "productivity", colors.productivity, 0.00, 0.34],
+        ["Consistency", "consistency", colors.consistency, 0.18, 0.42],
+        ["Punctuality", "punctuality", colors.punctuality, 0.36, 0.50],
+        ["Revision", "revision", colors.revision, 0.56, 0.58],
+        ["Goal Progress", "progress", colors.progress, 0.75, 0.66],
+      ];
+      let selected = new Date();
+      let visible = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      let goal = localStorage.getItem(goalKey) || "";
+      let confirmed = localStorage.getItem(confirmedKey) === "true" && goal;
+      let state = loadDay(dateKey(selected));
+      let latestMetrics = null;
+      let displayedMetrics = null;
+      let metricTween = null;
+      let hoveredPlanet = null;
+      let planetHitAreas = [];
+      let solarStarted = false;
+
+      function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+      function emptyDay(k){ return { dateString:k, tasks:[], hasBacklog:false, backlogCleared:false, backlogNote:"", revisionDone:false, revisionNote:"", review:"" }; }
+      function loadDay(k){ try { return { ...emptyDay(k), ...(JSON.parse(localStorage.getItem(keyPrefix+k)) || {}) }; } catch { return emptyDay(k); } }
+      function save(){ if(!state.hasBacklog) state.backlogCleared=false; localStorage.setItem(keyPrefix+state.dateString, JSON.stringify(state)); }
+      function pct(v){ return `${Math.round(v*100)}%`; }
+      function calc(){
+        const total = state.tasks.length;
+        const done = state.tasks.filter(t=>t.done).length;
+        const onTime = state.tasks.filter(t=>t.done && t.onTime).length;
+        const target = state.tasks.reduce((s,t)=>s+Number(t.target||0),0);
+        const actual = state.tasks.reduce((s,t)=>s+Number(t.actual||0),0);
+        let productivity = total ? done/total : 0;
+        if(state.hasBacklog && !state.backlogCleared) productivity = Math.max(0, productivity-.18);
+        if(state.hasBacklog && state.backlogCleared) productivity = Math.min(1, productivity+.08);
+        const consistency = target ? Math.min(1, actual/target) : 0;
+        let punctuality = done ? onTime/done : 0;
+        if(state.hasBacklog && !state.backlogCleared) punctuality = Math.max(0, punctuality-.15);
+        const revision = state.revisionDone ? 1 : 0;
+        const progress = Math.min(1, productivity*.34 + consistency*.22 + punctuality*.24 + revision*.20);
+        return { productivity, consistency, punctuality, revision, progress };
+      }
+      function render(){
+        const m = calc();
+        latestMetrics = m;
+        animateMetricsTo(m);
+        document.getElementById("dateLabel").textContent = selected.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+        document.getElementById("goalInput").value = goal;
+        document.getElementById("goalStatus").textContent = goal ? `Tracking: ${goal}` : "Set a goal to personalize the system.";
+        document.getElementById("missionForm").classList.toggle("hidden", !!confirmed);
+        const missionText = document.getElementById("missionText");
+        missionText.classList.toggle("hidden", !confirmed);
+        missionText.textContent = goal;
+        renderCalendar(); renderMetrics(displayedMetrics || m); renderTasks(); renderCore(); renderSummary(m);
+        if(!solarStarted){ solarStarted = true; requestAnimationFrame(drawSolarSystem); }
+      }
+      function animateMetricsTo(target){
+        const keys = ["productivity","consistency","punctuality","revision","progress"];
+        if(!displayedMetrics){ displayedMetrics = {...target}; return; }
+        const from = {...displayedMetrics};
+        const start = performance.now();
+        const duration = 760;
+        cancelAnimationFrame(metricTween);
+        // Ease-out interpolation keeps rings, bars, and orbit physics visually filling instead of snapping.
+        function tick(now){
+          const t = Math.min(1, (now-start)/duration);
+          const eased = 1 - Math.pow(1-t, 3);
+          keys.forEach(k => displayedMetrics[k] = from[k] + (target[k]-from[k]) * eased);
+          renderMetrics(displayedMetrics);
+          if(t < 1) metricTween = requestAnimationFrame(tick);
+        }
+        metricTween = requestAnimationFrame(tick);
+      }
+      function renderCalendar(){
+        document.getElementById("monthLabel").textContent = visible.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+        const box = document.getElementById("days"); box.innerHTML="";
+        const first = new Date(visible); const offset=(first.getDay()+6)%7; const start=new Date(first); start.setDate(first.getDate()-offset);
+        for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const b=document.createElement("button"); b.className="day"; if(d.getMonth()!==visible.getMonth()) b.classList.add("muted"); if(dateKey(d)===state.dateString)b.classList.add("active"); b.textContent=d.getDate(); b.onclick=()=>{selected=d; state=loadDay(dateKey(d)); render();}; box.appendChild(b); }
+      }
+      function renderMetrics(m){
+        const items=[["Productivity","productivity"],["Consistency","consistency"],["Punctuality","punctuality"],["Revision","revision"],["Goal Progress","progress"]];
+        document.getElementById("metrics").innerHTML = items.map(([n,k])=>`<article class="metric"><div class="ring" style="--c:${colors[k]};--v:${pct(m[k])}"><span>${pct(m[k])}</span></div><small>${n}</small></article>`).join("");
+        document.getElementById("bars").innerHTML = items.map(([n,k])=>`<div><div class="bar-top"><span>${n}</span><b>${pct(m[k])}</b></div><div class="track"><div class="fill" style="--c:${colors[k]};--v:${pct(m[k])}"></div></div></div>`).join("");
+      }
+      function renderTasks(){
+        const box=document.getElementById("tasks"); box.innerHTML="";
+        if(!state.tasks.length){ box.innerHTML='<p class="summary">No tasks yet. Add the first task for this date.</p>'; return; }
+        state.tasks.forEach((t,i)=>{ const el=document.createElement("article"); el.className="task glass"; el.innerHTML=`<div class="task-top"><div><h3>${escapeHtml(t.title)}</h3><small>Target ${Number(t.target||0).toFixed(2)}h</small></div><input type="number" step=".25" min="0" value="${Number(t.actual||0).toFixed(1)}"></div><div class="actions"><button class="${t.done?'on':''}">Completed</button><button class="${t.onTime?'on':''}" ${!t.done?'disabled':''}>On-Time</button><button class="danger">Delete</button></div>`; const input=el.querySelector("input"); const [done,on,del]=el.querySelectorAll("button"); input.oninput=()=>{t.actual=Number(input.value||0);save();const m=calc();latestMetrics=m;animateMetricsTo(m);renderSummary(m);}; input.onchange=()=>{t.actual=Number(input.value||0);save();render();}; done.onclick=()=>{t.done=!t.done;if(!t.done)t.onTime=false;save();render();}; on.onclick=()=>{t.onTime=!t.onTime;save();render();}; del.onclick=()=>{state.tasks.splice(i,1);save();render();}; box.appendChild(el); });
+      }
+      function renderCore(){
+        hasBacklog.checked=state.hasBacklog; backlogCleared.checked=state.backlogCleared; backlogCleared.disabled=!state.hasBacklog; backlogNote.value=state.backlogNote; revisionDone.checked=state.revisionDone; revisionNote.value=state.revisionNote; review.value=state.review;
+        backlogState.textContent = !state.hasBacklog ? "No backlog" : state.backlogCleared ? "Cleared" : "Affecting score";
+        revisionState.textContent = state.revisionDone ? "Completed" : "Pending";
+      }
+      function renderSummary(m){
+        const g=goal||"your goal";
+        summary.textContent = !goal ? "Type your goal first, then build today's execution plan." : state.hasBacklog&&!state.backlogCleared ? `Backlog is active, so ${g} progress is being penalized.` : `Progress for ${g}: ${pct(m.progress)}.`;
+      }
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
+
+      function drawSolarSystem(time){
+        const canvas = document.getElementById("solarCanvas");
+        if(!canvas){ return; }
+        const ctx = canvas.getContext("2d");
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(320, rect.width);
+        const height = Math.max(320, rect.height);
+        if(canvas.width !== Math.floor(width*dpr) || canvas.height !== Math.floor(height*dpr)){
+          canvas.width = Math.floor(width*dpr);
+          canvas.height = Math.floor(height*dpr);
+        }
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        ctx.clearRect(0,0,width,height);
+
+        // Framing fix: keep the solar system mathematically centered inside the visible canvas.
+        // A slightly smaller orbit field leaves room for labels/glow so nothing is clipped.
+        const cx = width/2;
+        const cy = height/2;
+        const side = Math.min(width,height) * 0.98;
+        // The solar view consumes the same animated metric state as the dashboard meters.
+        const metrics = displayedMetrics || latestMetrics || calc();
+        drawSpace(ctx,width,height,cx,cy,side);
+        const bodies = [];
+        const backOrbitSegments = [];
+        const frontOrbitSegments = [];
+        planetSpecs.forEach((spec,index)=>{
+          const [name,key,color,phase,tilt] = spec;
+          const score = Math.max(0, Math.min(1, metrics[key]));
+          const radius = side * (0.17 + index*0.052);
+          const start = -Math.PI/2 + phase*Math.PI*2;
+          const arc = Math.PI*2*score;
+          const isHover = hoveredPlanet === name;
+          const orbitColor = isHover ? color : "rgba(255,255,255,.08)";
+          queueOrbitSegments(backOrbitSegments, frontOrbitSegments, cx, cy, radius, tilt, start, Math.PI*2, orbitColor, isHover?1.8:1.1, isHover?9:0);
+          if(score > 0.005) queueOrbitSegments(backOrbitSegments, frontOrbitSegments, cx, cy, radius, tilt, start, arc, color, isHover?5.4:3.8, isHover?24:17);
+          const t = planetTravel(time, score, 0.20 + score*0.30 + index*.02);
+          const angle = score >= .999 ? start + Math.PI*2*t : start + arc*t;
+          const pos = projectOrbit(cx,cy,radius,tilt,angle);
+          bodies.push({name,score,color,pos,depth:Math.sin(angle),size:8+score*8,index});
+        });
+
+        // Depth sorting fix: back orbit halves render first, then the Sun, then front halves.
+        // This lets each ring visibly pass behind and in front of the Sun like a real 3D path.
+        drawOrbitSegments(ctx, backOrbitSegments);
+        bodies.filter(b=>b.depth<0).sort((a,b)=>a.depth-b.depth).forEach(b=>drawPlanet(ctx,b,false));
+        drawCentralPlanet(ctx,cx,cy,side,metrics.progress,time);
+        drawOrbitSegments(ctx, frontOrbitSegments);
+        bodies.filter(b=>b.depth>=0).sort((a,b)=>a.depth-b.depth).forEach(b=>drawPlanet(ctx,b,true));
+        planetHitAreas = bodies
+          .slice()
+          .sort((a,b)=>b.depth-a.depth)
+          .map(b => ({name:b.name,color:b.color,x:b.pos.x,y:b.pos.y,r:b.size+7,depth:b.depth}));
+        requestAnimationFrame(drawSolarSystem);
+      }
+
+      function drawSpace(ctx,w,h,cx,cy,side){
+        const glow = ctx.createRadialGradient(cx,cy,0,cx,cy,side*.58);
+        glow.addColorStop(0,"rgba(255,209,102,.10)");
+        glow.addColorStop(.45,"rgba(47,141,255,.08)");
+        glow.addColorStop(1,"rgba(0,0,0,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0,0,w,h);
+        for(let i=0;i<70;i++){
+          const x = (Math.sin(i*91.7)*.5+.5)*w;
+          const y = (Math.cos(i*47.3)*.5+.5)*h;
+          const a = .08 + (i%5)*.025;
+          ctx.fillStyle = `rgba(248,251,255,${a})`;
+          ctx.beginPath(); ctx.arc(x,y,(i%3)+.5,0,Math.PI*2); ctx.fill();
+        }
+      }
+
+      function projectOrbit(cx,cy,radius,tilt,angle){
+        return { x: cx + Math.cos(angle)*radius, y: cy + Math.sin(angle)*radius*tilt };
+      }
+
+      function queueOrbitSegments(backList, frontList, cx, cy, radius, tilt, start, span, color, lineWidth, blur){
+        if(span <= 0) return;
+        const steps = Math.max(8, Math.ceil(Math.abs(span)/(Math.PI*2)*160));
+        let activeSegment = [];
+        let activeIsFront = null;
+        for(let i=0;i<=steps;i++){
+          const a = start + span*i/steps;
+          const p = projectOrbit(cx,cy,radius,tilt,a);
+          const isFront = Math.sin(a) >= 0;
+          if(activeIsFront === null){
+            activeIsFront = isFront;
+          }
+          if(isFront !== activeIsFront && activeSegment.length){
+            (activeIsFront ? frontList : backList).push({points:activeSegment,color,lineWidth,blur});
+            activeSegment = [activeSegment[activeSegment.length-1]];
+            activeIsFront = isFront;
+          }
+          activeSegment.push(p);
+        }
+        if(activeSegment.length){
+          (activeIsFront ? frontList : backList).push({points:activeSegment,color,lineWidth,blur});
+        }
+      }
+
+      function drawOrbitSegments(ctx, segments){
+        segments.forEach(segment=>{
+          if(segment.points.length < 2) return;
+          ctx.strokeStyle=segment.color;
+          ctx.lineWidth=segment.lineWidth;
+          ctx.lineCap="round";
+          ctx.lineJoin="round";
+          ctx.shadowColor=segment.color;
+          ctx.shadowBlur=segment.blur;
+          ctx.beginPath();
+          segment.points.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+          ctx.stroke();
+        });
+        ctx.shadowBlur=0;
+      }
+
+      function planetTravel(time, score, speed){
+        if(score >= .999) return (time*speed/6200)%1;
+        const c = (time*speed/5000)%2;
+        return c <= 1 ? c : 2-c;
+      }
+
+      function drawCentralPlanet(ctx,cx,cy,side,progress,time){
+        const r = side*(.074 + progress*.018);
+        const lightX = cx-r*.45, lightY = cy-r*.55;
+        const aura = ctx.createRadialGradient(cx,cy,0,cx,cy,r*3.7);
+        aura.addColorStop(0,"rgba(255,184,77,.52)");
+        aura.addColorStop(.36,"rgba(255,96,54,.22)");
+        aura.addColorStop(1,"rgba(255,96,54,0)");
+        ctx.fillStyle=aura; ctx.beginPath(); ctx.arc(cx,cy,r*3.7,0,Math.PI*2); ctx.fill();
+
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
+        const plasma = ctx.createRadialGradient(lightX,lightY,0,cx,cy,r*1.2);
+        plasma.addColorStop(0,"#fff8c9");
+        plasma.addColorStop(.22,"#ffd166");
+        plasma.addColorStop(.58,"#ff7a00");
+        plasma.addColorStop(1,"#4a1304");
+        ctx.fillStyle=plasma; ctx.fillRect(cx-r,cy-r,r*2,r*2);
+
+        // Procedural solar granulation: layered arcs simulate a high-detail moving texture without external assets.
+        for(let i=0;i<42;i++){
+          const a = i*1.917 + time/5200;
+          const bandY = cy + Math.sin(a)*r*.62;
+          const bandW = r*(.18 + (i%5)*.055);
+          const bandH = r*(.035 + (i%3)*.018);
+          ctx.fillStyle = i%2 ? "rgba(255,255,255,.18)" : "rgba(255,44,20,.18)";
+          ctx.beginPath();
+          ctx.ellipse(cx + Math.cos(a*1.7)*r*.28, bandY, bandW, bandH, Math.sin(a)*.7, 0, Math.PI*2);
+          ctx.fill();
+        }
+
+        const shadow = ctx.createRadialGradient(cx+r*.38,cy+r*.25,0,cx+r*.15,cy+r*.18,r*1.22);
+        shadow.addColorStop(0,"rgba(0,0,0,0)");
+        shadow.addColorStop(.52,"rgba(0,0,0,.20)");
+        shadow.addColorStop(1,"rgba(0,0,0,.72)");
+        ctx.fillStyle=shadow; ctx.fillRect(cx-r,cy-r,r*2,r*2);
+        ctx.restore();
+
+        ctx.strokeStyle="rgba(255,236,173,.86)";
+        ctx.lineWidth=2;
+        ctx.shadowColor="#ffb13b";
+        ctx.shadowBlur=24;
+        ctx.beginPath(); ctx.arc(cx,cy,r+1,0,Math.PI*2); ctx.stroke();
+        ctx.shadowBlur=0;
+
+        ctx.fillStyle="rgba(255,255,255,.92)";
+        ctx.font=`900 ${Math.max(20,side*.052)}px system-ui`; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(pct(progress),cx,cy);
+        ctx.fillStyle="rgba(248,251,255,.82)"; ctx.font=`800 ${Math.max(10,side*.022)}px system-ui`;
+        ctx.fillText("Overall",cx,cy+r+18);
+      }
+
+      function drawPlanet(ctx,b,front){
+        const alpha = front ? 1 : .56;
+        ctx.globalAlpha=alpha;
+        ctx.shadowColor=b.color; ctx.shadowBlur=20*b.score+10;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(b.pos.x,b.pos.y,b.size,0,Math.PI*2); ctx.clip();
+        const material = ctx.createRadialGradient(b.pos.x-b.size*.35,b.pos.y-b.size*.45,0,b.pos.x,b.pos.y,b.size*1.15);
+        material.addColorStop(0,"rgba(255,255,255,.95)");
+        material.addColorStop(.22,b.color);
+        material.addColorStop(.72,shadeColor(b.color,-42));
+        material.addColorStop(1,"#020305");
+        ctx.fillStyle=material; ctx.fillRect(b.pos.x-b.size,b.pos.y-b.size,b.size*2,b.size*2);
+        for(let i=0;i<7;i++){
+          const a = i*2.03 + b.index;
+          ctx.fillStyle = i%2 ? "rgba(255,255,255,.16)" : "rgba(0,0,0,.18)";
+          ctx.beginPath();
+          ctx.ellipse(b.pos.x+Math.cos(a)*b.size*.38,b.pos.y+Math.sin(a*1.4)*b.size*.32,b.size*(.12+i*.012),b.size*.05,Math.sin(a),0,Math.PI*2);
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.globalAlpha=1; ctx.shadowBlur=0;
+        ctx.strokeStyle="rgba(255,255,255,.72)"; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(b.pos.x,b.pos.y,b.size,0,Math.PI*2); ctx.stroke();
+        const label = `${b.name}: ${pct(b.score)}`;
+        ctx.font="800 12px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        const tw = ctx.measureText(label).width;
+        const lx = Math.max(tw/2+8, Math.min(ctx.canvas.width/(window.devicePixelRatio||1)-tw/2-8, b.pos.x));
+        const ly = b.pos.y - b.size - 20;
+        ctx.fillStyle="rgba(0,0,0,.68)"; roundRect(ctx,lx-tw/2-8,ly-11,tw+16,22,8); ctx.fill();
+        ctx.strokeStyle=b.color; ctx.lineWidth=.8; roundRect(ctx,lx-tw/2-8,ly-11,tw+16,22,8); ctx.stroke();
+        ctx.fillStyle="rgba(248,251,255,.94)"; ctx.fillText(label,lx,ly);
+      }
+
+      function shadeColor(hex, percent){
+        const num=parseInt(hex.replace("#",""),16);
+        const amt=Math.round(2.55*percent);
+        const r=Math.max(0,Math.min(255,(num>>16)+amt));
+        const g=Math.max(0,Math.min(255,(num>>8&255)+amt));
+        const b=Math.max(0,Math.min(255,(num&255)+amt));
+        return `rgb(${r},${g},${b})`;
+      }
+
+      function hexToRgb(hex){
+        const num=parseInt(hex.replace("#",""),16);
+        return `${num>>16}, ${(num>>8)&255}, ${num&255}`;
+      }
+      function setAccent(color){
+        document.documentElement.style.setProperty("--accent", color);
+        document.documentElement.style.setProperty("--accent-rgb", hexToRgb(color));
+      }
+      function resetAccent(){
+        setAccent("#6C5CE7");
+      }
+      function getPlanetHit(event){
+        const rect=solarCanvas.getBoundingClientRect();
+        const x=event.clientX-rect.left;
+        const y=event.clientY-rect.top;
+        // Interaction state fix: only the visible planet bodies are pointer targets.
+        // Decorative orbit paths cannot trigger or latch the hover glow.
+        return planetHitAreas.find(p=>Math.hypot(x-p.x,y-p.y)<=p.r);
+      }
+
+      function roundRect(ctx,x,y,w,h,r){
+        ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+      }
+
+      missionForm.onsubmit=e=>{ e.preventDefault(); goal=goalInput.value.trim(); confirmed=!!goal; localStorage.setItem(goalKey,goal); localStorage.setItem(confirmedKey,String(confirmed)); render(); };
+      missionText.onclick=()=>{ confirmed=false; localStorage.setItem(confirmedKey,"false"); render(); goalInput.focus(); };
+      goalInput.oninput=()=>{ goal=goalInput.value.trim(); confirmed=false; localStorage.setItem(goalKey,goal); localStorage.setItem(confirmedKey,"false"); };
+      prevMonth.onclick=()=>{ visible=new Date(visible.getFullYear(),visible.getMonth()-1,1); renderCalendar(); };
+      nextMonth.onclick=()=>{ visible=new Date(visible.getFullYear(),visible.getMonth()+1,1); renderCalendar(); };
+      addTask.onclick=()=>{ const title=prompt("Task title"); if(!title)return; const target=Number(prompt("Target hours","1")||1); state.tasks.push({title,target,actual:0,done:false,onTime:false}); save(); render(); };
+      hasBacklog.onchange=()=>{ state.hasBacklog=hasBacklog.checked; if(!state.hasBacklog)state.backlogCleared=false; save(); render(); };
+      backlogCleared.onchange=()=>{ state.backlogCleared=backlogCleared.checked; if(state.backlogCleared)state.hasBacklog=true; save(); render(); };
+      backlogNote.oninput=()=>{ state.backlogNote=backlogNote.value; save(); };
+      revisionDone.onchange=()=>{ state.revisionDone=revisionDone.checked; save(); render(); };
+      revisionNote.oninput=()=>{ state.revisionNote=revisionNote.value; save(); };
+      review.oninput=()=>{ state.review=review.value; save(); };
+      solarCanvas.onmousemove=e=>{
+        const hit=getPlanetHit(e);
+        hoveredPlanet = hit ? hit.name : null;
+        solarCanvas.style.cursor = hit ? "pointer" : "default";
+        hit ? setAccent(hit.color) : resetAccent();
+      };
+      solarCanvas.onclick=e=>{
+        const hit=getPlanetHit(e);
+        if(!hit){
+          hoveredPlanet=null;
+          solarCanvas.style.cursor = "default";
+          resetAccent();
+        }
+      };
+      solarCanvas.onmouseleave=()=>{
+        hoveredPlanet=null;
+        solarCanvas.style.cursor = "default";
+        resetAccent();
+      };
+      if("serviceWorker" in navigator){ navigator.serviceWorker.getRegistrations?.().then(rs=>rs.forEach(r=>r.unregister())); }
+      render();
+    </script>
+  </body>
+</html>

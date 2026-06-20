@@ -1,0 +1,17 @@
+{
+  "name": "Apex Goal Tracker",
+  "short_name": "Apex Goals",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#020405",
+  "theme_color": "#020405",
+  "description": "Offline day-by-day goal execution tracker.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
